@@ -14,13 +14,24 @@ import NotificationsIcon from '@material-ui/icons/Notifications';
 import { mainListItems, secondaryListItems } from './listItems';
 import SimpleTable from './SimpleTable';
 import { Grid } from '@material-ui/core';
-import Box from 'src/Components/Box';
+import Box from 'src/components/Box';
+import Container from 'typedi';
+import { EnergyDataSource } from 'src/data';
+import { isEmpty } from 'lodash';
 
+var LineChart = require("react-chartjs").Line;
 
 class Dashboard extends React.Component {
+  private readonly energyDataSource: EnergyDataSource = Container.get(EnergyDataSource);
+
   state = {
     open: false,
+    data: {}
   };
+
+  componentDidMount() {
+    this.setState({data: this.energyDataSource.getData()}, () => console.log(this.state.data));
+  }  
 
   handleDrawerOpen = () => {
     this.setState({ open: true });
@@ -52,41 +63,59 @@ class Dashboard extends React.Component {
         <Grid container alignContent='center' alignItems='center' justify='center' spacing={32}>
           <Grid item xs={12}>
             <AppBar
-              position="absolute"
+              position="fixed"
             >
-              <Toolbar disableGutters={!this.state.open} >
-                <IconButton
-                  color="inherit"
-                  aria-label="Open drawer"
-                  onClick={this.handleDrawerOpen}
-                >
-                  <MenuIcon />
-                </IconButton>
-                <Typography
-                  component="h1"
-                  variant="h6"
-                  color="inherit"
-                  noWrap
-                >
-                  Dashboard
-                </Typography>
-                <IconButton color="inherit">
-                  <Badge badgeContent={0} color="secondary">
-                    <NotificationsIcon />
-                  </Badge>
-                </IconButton>
-              </Toolbar>
+              <Box>
+                <Toolbar disableGutters={!this.state.open} >
+                  <IconButton
+                    color="inherit"
+                    aria-label="Open drawer"
+                    onClick={this.handleDrawerOpen}
+                  >
+                    <MenuIcon />
+                  </IconButton>
+                  <Typography
+                    component="h1"
+                    variant="h6"
+                    color="inherit"
+                    noWrap
+                  >
+                    Dashboard
+                  </Typography>
+                  <IconButton color="inherit">
+                    <Badge badgeContent={0} color="secondary">
+                      <NotificationsIcon />
+                    </Badge>
+                  </IconButton>
+                </Toolbar>
+              </Box>
             </AppBar>
           </Grid>
+          <Grid item xs={12}/>
           <Grid item xs={12}/>
           <Grid item xs={12}>
             <Box>
               <Typography variant="h4" gutterBottom component="h2">
-                Consumption
+                Consumo
               </Typography>
               <SimpleTable />
             </Box>
           </Grid>
+          {!isEmpty(this.state.data) ?
+            <Grid item xs={12}>
+              <Box>
+                <Typography variant="h4" gutterBottom component="h2">
+                  Gráfico
+                </Typography>
+                <LineChart 
+                  data={this.state.data} 
+                  options={{responsive: true, maintainAspectRatio: false}}
+                  width={250} 
+                  height={250}/>
+              </Box>
+            </Grid>
+            :null
+          }
         </Grid>
       </div>
     );
