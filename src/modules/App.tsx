@@ -3,11 +3,8 @@ import * as React from 'react';
 import { BrowserRouter as Router, Route } from "react-router-dom";
 import {Alert} from "reactstrap";
 
-import Dashboard from '../Dashboard/Dashboard';
-
+import Dashboard from './Dashboard/Dashboard';
 import './App.css';
-
-
 
 interface IState{
   alert: boolean,
