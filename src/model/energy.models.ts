@@ -11,5 +11,6 @@ export interface GraphInformation {
   pointStrokeColor: string,
   pointHighlightFill: string,
   pointHighlightStroke: string,
-  data: number[]
+  data: number[],
+  xAxisID: string,
 }

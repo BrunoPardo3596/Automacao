@@ -11,25 +11,45 @@ import Badge from '@material-ui/core/Badge';
 import MenuIcon from '@material-ui/icons/Menu';
 import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import NotificationsIcon from '@material-ui/icons/Notifications';
-import { mainListItems, secondaryListItems } from './listItems';
+import { mainListItems } from './listItems';
 import SimpleTable from './SimpleTable';
 import { Grid } from '@material-ui/core';
 import Box from 'src/components/Box';
 import Container from 'typedi';
 import { EnergyDataSource } from 'src/data';
 import { isEmpty } from 'lodash';
+import { GraphData } from 'src/model/energy.models';
 
 var LineChart = require("react-chartjs").Line;
 
-class Dashboard extends React.Component {
+const options = {
+  title: {
+    display: true,
+    text: 'Custom Chart Title'
+  },
+  responsive: true, 
+  maintainAspectRatio: false
+}
+
+export interface IDashboardState {
+  open: boolean,
+  data: GraphData,
+  expectedCost: string
+}
+
+class Dashboard extends React.Component<{}, IDashboardState> {
   private readonly energyDataSource: EnergyDataSource = Container.get(EnergyDataSource);
 
-  state = {
-    open: false,
-    data: {}
-  };
+  constructor(props: any) {
+    super(props);
+    this.state = {
+      open: false,
+      expectedCost: '',
+      data: this.energyDataSource.getData()
+    };
+  }
 
-  componentDidMount() {
+  async componentDidMount() {
     this.setState({data: this.energyDataSource.getData()}, () => console.log(this.state.data));
   }  
 
@@ -57,8 +77,6 @@ class Dashboard extends React.Component {
               </div>
               <Divider />
               <List>{mainListItems}</List>
-              <Divider />
-              <List>{secondaryListItems}</List>
             </Drawer>
         <Grid container alignContent='center' alignItems='center' justify='center' spacing={32}>
           <Grid item xs={12}>
@@ -93,7 +111,7 @@ class Dashboard extends React.Component {
           </Grid>
           <Grid item xs={12}/>
           <Grid item xs={12}/>
-          <Grid item xs={12}>
+          <Grid item xs={6}>
             <Box>
               <Typography variant="h4" gutterBottom component="h2">
                 Consumo
@@ -102,14 +120,14 @@ class Dashboard extends React.Component {
             </Box>
           </Grid>
           {!isEmpty(this.state.data) ?
-            <Grid item xs={12}>
+            <Grid item xs={6}>
               <Box>
                 <Typography variant="h4" gutterBottom component="h2">
-                  Gráfico
+                  Consumo 2019
                 </Typography>
                 <LineChart 
                   data={this.state.data} 
-                  options={{responsive: true, maintainAspectRatio: false}}
+                  options={options}
                   width={250} 
                   height={250}/>
               </Box>
