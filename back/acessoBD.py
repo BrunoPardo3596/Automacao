@@ -22,82 +22,219 @@ class Laboratorios:
     pass
 
 class MedLabProg:
+    sqlSelect=""
+    
+    sqlBase= """
+        ,sum(subconsulta.iluminacao) as iluminacao,
+        sum(subconsulta.rede) as rede,
+        sum(subconsulta.ar) as ar,
+        sum(subconsulta.bancada) as bancada
+		FROM (SELECT time_bucket('01:00:00'::interval, filtro."time") AS hora,
+				avg(filtro.consumo_total::numeric * 0.001) AS por_hora,	  
+                avg(filtro.iluminacao::numeric * 0.001) AS iluminacao,
+                avg(filtro.rede::numeric * 0.001) AS rede,
+                avg(filtro.ar_cond::numeric * 0.001) AS ar,
+                avg(filtro.bancadas::numeric * 0.001) AS bancada
+		  	 
+				FROM (
+					 SELECT med_labprog."time",
+						med_labprog.total AS consumo_total,
+						med_labprog.iluminacao AS iluminacao,
+						med_labprog.rede AS rede,
+						med_labprog.ar_cond AS ar_cond,
+						med_labprog.bancadas AS bancadas
+					   FROM med_labprog
+					  ORDER BY med_labprog."time"				
+				) as filtro"""			  
+		
+    sqlFiltro=""
+		  
+    def getResultado(self,sql):
+        conexao=ConexaoBD()
+        resposta=conexao.consulta(sql)
+        return(resposta)
+		  
+
     def getAll(self):
         sql="""SELECT * FROM \"med_labprog\" """
         return(self.getResultado(sql))
 
     def getByInterval(self,dataInicio,dataFim):
-        # SELECT * FROM med_labsoft WHERE time BETWEEN '2019-02-20' AND '2019-02-21'
-        sql="SELECT * FROM \"med_labprog\" WHERE time BETWEEN \'"+dataInicio+ "\' AND \'"+dataFim+"\'"
-        return(self.getResultado(sql))
-        
+        sqlSelect="""SELECT (extract(Day FROM subconsulta.hora)||'/'||extract(Month FROM subconsulta.hora)||'/'||extract(Year FROM subconsulta.hora)) as nData,
+        sum(subconsulta.por_hora),
+        """
+        sqlFiltro="""WHERE  filtro."time" BETWEEN '"""+dataInicio+""" and '"""+dataFim+"""'
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
     
-    def getByDay(self,data):
-        sql="SELECT date_trunc('day', time)::date as nData,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas) FROM med_labprog WHERE date_trunc('day', time)=\'"+data+"\' GROUP BY  date_trunc('day', time) ORDER BY nData; "
+    def getByDay(self,dia,mes,ano):
+        sqlSelect="""SELECT (extract(Day FROM subconsulta.hora)||'/'||extract(Month FROM subconsulta.hora)||'/'||extract(Year FROM subconsulta.hora)) as nData,sum(subconsulta.por_hora)"""
+        sqlFiltro="""WHERE extract(Day FROM filtro."time")="""+dia+""" extract(Month FROM filtro."time")="""+mes+""" and extract(Year FROM filtro."time")="""+ano+"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
+
+        return(self.getResultado(sql))
+    def getByMonthDays(self,mes,ano):
+        sqlSelect="""SELECT extract(Day FROM subconsulta.hora)as nData,sum(subconsulta.por_hora)"""
+        sqlFiltro=""" WHERE extract(Month FROM filtro."time")="""+mes+""" and extract(Year FROM filtro."time")="""+ano+"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
+
         return(self.getResultado(sql))
 
-    def getByMonthDays(self,mes):
-        sql="SELECT date_trunc('day', time)::date as nData,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas) FROM med_labprog WHERE extract(MONTH FROM time)=2 GROUP BY  nData ORDER BY  nData;"
-        return(self.getResultado(sql))
 
-    def getByMonth(self,mes):
-        sql="SELECT extract(MONTH FROM time) as mes,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas) FROM med_labprog WHERE extract(MONTH FROM time)="+mes+" GROUP BY mes ORDER BY mes;"
+    def getByMonth(self,mes,ano):
+        sqlSelect="""SELECT (extract(Month FROM subconsulta.hora)||'-'||extract(Year FROM subconsulta.hora)) as nData,sum(subconsulta.por_hora)"""
+        sqlFiltro=""" WHERE extract(Month FROM filtro."time")="""+mes+""" and extract(Year FROM filtro."time")="""+ano+"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
+
         return(self.getResultado(sql))
 
     def getByYearMonths(self,ano):
-        sql="SELECT (extract(YEAR FROM time) ||'-'|| extract(MONTH FROM time)) as nData,sum(total),sum(iluminacao),sum(servidor),sum(rede),sum(ar_cond),sum(bancadas) FROM med_labprog WHERE extract(YEAR FROM time)="+ ano +" GROUP BY  nData ORDER BY  nData;"
+        sqlSelect="""SELECT extract(Month FROM subconsulta.hora) as nData,sum(subconsulta.por_hora) """
+        sqlFiltro=""" WHERE extract(YEAR FROM filtro."time")="""+ ano +"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
+
         return(self.getResultado(sql))
 
     def getByYear(self,ano):
-        sql="SELECT extract(YEAR FROM time) as ano,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas) FROM med_labprog WHERE extract(YEAR FROM time)="+ ano +" GROUP BY ano ORDER BY ano;"
+        sqlSelect="""SELECT extract(YEAR FROM subconsulta.hora) as nData,sum(subconsulta.por_hora) """
+        sqlFiltro=""" WHERE extract(YEAR FROM filtro."time")="""+ ano +"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
         return(self.getResultado(sql))
 
-    def getResultado(self,sql):
-        conexao=ConexaoBD()
-        resposta=conexao.consulta(sql)
-        return(resposta)
 
 
 #-----------------------------------------------------------------------------------------------------------------------
 
 
-
 class MedLabSoft:
+    sqlSelect=""
+    
+    sqlBase= """
+        ,sum(subconsulta.iluminacao) as iluminacao,
+        sum(subconsulta.rede) as rede,
+        sum(subconsulta.ar) as ar,
+        sum(subconsulta.bancada) as bancada,
+        sum(subconsulta.servidor) as servidor
+		FROM (SELECT time_bucket('01:00:00'::interval, filtro."time") AS hora,
+				avg(filtro.consumo_total::numeric * 0.001) AS por_hora,	  
+                avg(filtro.iluminacao::numeric * 0.001) AS iluminacao,
+                avg(filtro.rede::numeric * 0.001) AS rede,
+                avg(filtro.ar_cond::numeric * 0.001) AS ar,
+                avg(filtro.bancadas::numeric * 0.001) AS bancada,
+                avg(filtro.servidor::numeric * 0.001) AS servidor  
+				FROM (
+					 SELECT med_labsoft."time",
+						med_labsoft.total AS consumo_total,
+						med_labsoft.iluminacao AS iluminacao,
+						med_labsoft.rede AS rede,
+						med_labsoft.ar_cond AS ar_cond,
+						med_labsoft.bancadas AS bancadas,
+						med_labsoft.servidor AS servidor
+					   FROM med_labsoft
+					  ORDER BY med_labsoft."time"				
+				) as filtro"""			  
+		
+    sqlFiltro=""
+		  
+    def getResultado(self,sql):
+        conexao=ConexaoBD()
+        resposta=conexao.consulta(sql)
+        return(resposta)
+		  
+
     def getAll(self):
         sql="""SELECT * FROM \"med_labsoft\" """
         return(self.getResultado(sql))
 
     def getByInterval(self,dataInicio,dataFim):
-        # SELECT * FROM med_labsoft WHERE time BETWEEN '2019-02-20' AND '2019-02-21'
-        sql="SELECT * FROM \"med_labsoft\" WHERE time BETWEEN \'"+dataInicio+ "\' AND \'"+dataFim+"\'"
-        return(self.getResultado(sql))
-        
+        sqlSelect="""SELECT (extract(Day FROM subconsulta.hora)||'/'||extract(Month FROM subconsulta.hora)||'/'||extract(Year FROM subconsulta.hora)) as nData,
+        sum(subconsulta.por_hora),
+        """
+        sqlFiltro="""WHERE  filtro."time" BETWEEN '"""+dataInicio+""" and '"""+dataFim+"""'
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
     
-    def getByDay(self,data):
-        sql="SELECT date_trunc('day', time)::date as nData,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas),sum(servidor) FROM med_labsoft WHERE date_trunc('day', time)=\'"+data+"\' GROUP BY  date_trunc('day', time) ORDER BY nData; "
+    def getByDay(self,dia,mes,ano):
+        sqlSelect="""SELECT (extract(Day FROM subconsulta.hora)||'/'||extract(Month FROM subconsulta.hora)||'/'||extract(Year FROM subconsulta.hora)) as nData,sum(subconsulta.por_hora)"""
+        sqlFiltro="""WHERE extract(Day FROM filtro."time")="""+dia+""" extract(Month FROM filtro."time")="""+mes+""" and extract(Year FROM filtro."time")="""+ano+"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
+
+        return(self.getResultado(sql))
+    def getByMonthDays(self,mes,ano):
+        sqlSelect="""SELECT extract(Day FROM subconsulta.hora)as nData,sum(subconsulta.por_hora)"""
+        sqlFiltro=""" WHERE extract(Month FROM filtro."time")="""+mes+""" and extract(Year FROM filtro."time")="""+ano+"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
+
         return(self.getResultado(sql))
 
-    def getByMonthDays(self,mes):
-        sql="SELECT date_trunc('day', time)::date as nData,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas),sum(servidor) FROM med_labsoft WHERE extract(MONTH FROM time)=2 GROUP BY  nData ORDER BY  nData;"
-        return(self.getResultado(sql))
 
-    def getByMonth(self,mes):
-        sql="SELECT extract(MONTH FROM time) as mes,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas),sum(servidor) FROM med_labsoft WHERE extract(MONTH FROM time)="+mes+" GROUP BY mes ORDER BY mes;"
+    def getByMonth(self,mes,ano):
+        sqlSelect="""SELECT (extract(Month FROM subconsulta.hora)||'-'||extract(Year FROM subconsulta.hora)) as nData,sum(subconsulta.por_hora)"""
+        sqlFiltro=""" WHERE extract(Month FROM filtro."time")="""+mes+""" and extract(Year FROM filtro."time")="""+ano+"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
+
         return(self.getResultado(sql))
 
     def getByYearMonths(self,ano):
-        sql="SELECT (extract(YEAR FROM time) ||'-'|| extract(MONTH FROM time)) as nData,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas),sum(servidor) FROM med_labsoft WHERE extract(YEAR FROM time)="+ ano +" GROUP BY  nData ORDER BY  nData;"
+        sqlSelect="""SELECT extract(Month FROM subconsulta.hora) as nData,sum(subconsulta.por_hora) """
+        sqlFiltro=""" WHERE extract(YEAR FROM filtro."time")="""+ ano +"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
+
         return(self.getResultado(sql))
 
     def getByYear(self,ano):
-        sql="SELECT extract(YEAR FROM time) as ano,sum(total),sum(iluminacao),sum(rede),sum(ar_cond),sum(bancadas),sum(servidor) FROM med_labsoft WHERE extract(YEAR FROM time)="+ ano +" GROUP BY ano ORDER BY ano;"
+        sqlSelect="""SELECT extract(YEAR FROM subconsulta.hora) as nData,sum(subconsulta.por_hora) """
+        sqlFiltro=""" WHERE extract(YEAR FROM filtro."time")="""+ ano +"""
+		 	            GROUP BY (time_bucket('01:00:00'::interval, filtro."time"))
+		 	            ORDER BY (time_bucket('01:00:00'::interval, filtro."time")) DESC
+		                 )as subconsulta		
+		                 GROUP BY nData"""
+        sql=sqlSelect + self.sqlBase +sqlFiltro 
         return(self.getResultado(sql))
 
-    def getResultado(self,sql):
-        conexao=ConexaoBD()
-        resposta=conexao.consulta(sql)
-        return(resposta)
-    
+       
 
     def tratamentoDados(self,dados,filtro=""):
         lista=[]
@@ -110,7 +247,6 @@ class MedLabSoft:
 
             dado={}
             dado={  "data":item[0],
-                    #"horario":hora+":"+minuto,
                     "consumoTotal":item[1],
                     "iluminacao":item[2],
                     "servidor":item[3],
@@ -130,18 +266,37 @@ class Metricas:
 
 class acessoBD:
 
-    colunas=("Total","iluminacao","rede","ar_cond","bancadas","servidor")
+    
 
-    def consumoMensal(self,mes=str(date.today().month)):
+    def consumoMensal(self,mes=str(date.today().month),ano=str(date.today().year)):
         mediLabSoft=MedLabSoft()
         mediLabProg=MedLabProg()
 
-        listaLabSoft=mediLabSoft.getByMonth(mes)
-        listaLabProg=mediLabProg.getByMonth(mes)
+        listaLabSoft=mediLabSoft.getByMonth(mes,ano)
+        listaLabProg=mediLabProg.getByMonth(mes,ano)
 
-        ls,lp=self.consumo(listaLabSoft,listaLabProg)
+        ls,lp=self.consumoAgrupado(listaLabSoft,listaLabProg)
 
         dados={ "mes":mes,
+                "ano":ano,
+                "labSoft": ls,
+                "labProg":lp
+        }
+
+        # return(json.dumps(dados))
+        return(dados)
+
+    def consumoMensalDetalhado(self,mes=str(date.today().month),ano=str(date.today().year)):
+        mediLabSoft=MedLabSoft()
+        mediLabProg=MedLabProg()
+
+        listaLabSoft=mediLabSoft.getByMonthDays(mes,ano)
+        listaLabProg=mediLabProg.getByMonthDays(mes,ano)
+
+        ls,lp=self.consumoDetalhado(listaLabSoft,listaLabProg,"dia")
+
+        dados={ "mes":mes,
+                "ano":ano,
                 "labSoft": ls,
                 "labProg":lp
         }
@@ -156,7 +311,7 @@ class acessoBD:
         listaLabSoft=mediLabSoft.getByYear(ano)
         listaLabProg=mediLabProg.getByYear(ano)
 
-        ls,lp=self.consumo(listaLabSoft,listaLabProg)
+        ls,lp=self.consumoAgrupado(listaLabSoft,listaLabProg)
 
         dados={ "ano":ano,
                 "labSoft": ls,
@@ -166,32 +321,96 @@ class acessoBD:
         # return(json.dumps(dados))
         return(dados)
 
-    def consumo(self,listaS,listaP):
-        
+    def consumoAnualDetalhado(self,ano=str(date.today().year)):
+        mediLabSoft=MedLabSoft()
+        mediLabProg=MedLabProg()
+
+        listaLabSoft=mediLabSoft.getByYearMonths(ano)
+        listaLabProg=mediLabProg.getByYearMonths(ano)
+
+        ls,lp=self.consumoDetalhado(listaLabSoft,listaLabProg,"mes")
+
+        dados={ "ano":ano,
+                "labSoft": ls,
+                "labProg":lp
+        }
+
+        # return(json.dumps(dados))
+        return(dados)
+
+
+
+
+    def consumoDetalhado(self,listaS,listaP,vigencia):
+        colunas=("Total","iluminacao","rede","ar_cond","bancadas","servidor")
         listaSoft= []
 
-        for item in listaS:
-            dado={}
-            
-            for a in range(1,len(self.__class__.colunas)):
-                consumo=round(item[a]/1000,2) #kW
-                gasto=round(consumo*0.4836,2)
-                dado={  "nome": self.__class__.colunas[a-1],
+        for item in listaS:            
+            listaDia=[]
+
+            for c in range(1,len(colunas)+1):
+                dado={}
+                consumo=round(float(item[c]),2) 
+                gasto=round(float(consumo)*0.4836,2)
+                dado={  "nome": colunas[c-1],
                         "consumo":str(consumo),
                         "gasto": str(gasto)
                 }
-                listaSoft.append(dado)
+                listaDia.append(dado)
+            listaSoft.append({
+                vigencia: item[0],
+                "dados":listaDia
+            })
+
+
+        listaProg=[]
+        for item in listaP:            
+            listaDia=[]
+
+            for d in range(1,len(colunas)):
+                dado={}
+                consumo=round(float(item[d]),2) 
+                gasto=round(float(consumo)*0.4836,2)
+                dado={  "nome": colunas[d-1],
+                        "consumo":str(consumo),
+                        "gasto": str(gasto)
+                }
+                listaDia.append(dado)
+
+            listaProg.append({
+                vigencia: item[0],
+                "dados":listaDia
+            })
+
+        return(listaSoft,listaProg)
+
+
+    def consumoAgrupado(self,listaS,listaP):
+        colunas=("Total","iluminacao","rede","ar_cond","bancadas","servidor")
+        listaSoft= []
+
+        for item in listaS:
             
+            
+            for a in range(1,len(colunas)+1):
+                dado={}
+                consumo=round(float(item[a]),2) 
+                gasto=round(float(consumo)*0.4836,2)
+                dado={  "nome": colunas[a-1],
+                        "consumo":str(consumo),
+                        "gasto": str(gasto)
+                }
+                listaSoft.append(dado)           
 
 
         i=0
         listaProg= []
         for item in listaP:
             dado={}
-            for b in range(1,len(self.__class__.colunas)-1):
-                consumo=round(item[b]/1000,2) #kW
-                gasto=round(consumo*0.4836,2)
-                dado={  "nome":self.__class__.colunas[b-1],
+            for b in range(1,len(colunas)):
+                consumo=round(float(item[b]),2) #kW
+                gasto=round(float(consumo)*0.4836,2)
+                dado={  "nome":colunas[b-1],
                         "consumo":str(consumo),
                         "gasto": str(gasto)
                 }
@@ -208,10 +427,21 @@ if (__name__=="__main__"):
     #     print(item)
 
     a=acessoBD()
-    print(a.consumoAnual())
+    # print(a.consumoAnual())
+    # print(a.consumoMensal())
+    # print(a.consumoMensalDetalhado())
+    print(a.consumoAnualDetalhado())
 
     # tarifa: R$0,4836 o KWh
 
     # SELECT sum(total),sum(iluminacao),sum(servidor),sum(rede),sum(ar_cond),sum(bancadas) FROM med_labsoft WHERE time BETWEEN '2019-02-20' AND '2019-02-21' GROUP BY  DATE_PART('MONTH', time)
 
     # SELECT date_trunc('day', time)::date as nData,sum(total),sum(iluminacao),sum(servidor),sum(rede),sum(ar_cond),sum(bancadas) FROM med_labsoft WHERE time BETWEEN '2019-02-20' AND '2019-04-01' GROUP BY  date_trunc('day', time) ORDER BY nData; 
+
+#      SELECT sum(subconsulta.por_hora) * 0.4288 AS total
+#    FROM ( SELECT time_bucket('01:00:00'::interval, consumo_watts_labsoft."time") AS hora,
+#             avg(consumo_watts_labsoft.consumo_total::numeric * 0.001) AS por_hora
+#            FROM consumo_watts_labsoft
+#           WHERE consumo_watts_labsoft."time" > (now() - '165 day'::interval)
+#           GROUP BY (time_bucket('01:00:00'::interval, consumo_watts_labsoft."time"))
+#           ORDER BY (time_bucket('01:00:00'::interval, consumo_watts_labsoft."time")) DESC) subconsulta;

@@ -19,6 +19,7 @@ import Container from 'typedi';
 import { EnergyDataSource } from 'src/data';
 import { isEmpty } from 'lodash';
 import { GraphData } from 'src/model/energy.models';
+import { ClipLoader } from 'react-spinners';
 
 var LineChart = require("react-chartjs").Line;
 
@@ -33,8 +34,12 @@ const options = {
 
 export interface IDashboardState {
   open: boolean,
-  data: GraphData,
-  expectedCost: string
+  anualDataByMonth: GraphData | null,
+  monthDataDayByDay: any,
+  anualData: any,
+  monthData: any,
+  expectedCost: string,
+  loading: boolean,
 }
 
 class Dashboard extends React.Component<{}, IDashboardState> {
@@ -45,12 +50,20 @@ class Dashboard extends React.Component<{}, IDashboardState> {
     this.state = {
       open: false,
       expectedCost: '',
-      data: this.energyDataSource.getData()
+      anualDataByMonth: null,
+      anualData: null,
+      monthData: null,
+      monthDataDayByDay: null,
+      loading: true
     };
   }
 
   async componentDidMount() {
-    this.setState({data: this.energyDataSource.getData()}, () => console.log(this.state.data));
+    const anualDataByMonth = await this.energyDataSource.getAnualMonthByMonth();
+    const monthDataDayByDay = await this.energyDataSource.getMonthlyWasteDayByDay();
+    const monthData = await this.energyDataSource.getMonthlyConsume();
+    const anualData = await this.energyDataSource.getAnualConsume();
+    this.setState({anualDataByMonth, monthDataDayByDay, monthData, anualData, loading: false});
   }  
 
   handleDrawerOpen = () => {
@@ -111,28 +124,69 @@ class Dashboard extends React.Component<{}, IDashboardState> {
           </Grid>
           <Grid item xs={12}/>
           <Grid item xs={12}/>
-          <Grid item xs={6}>
-            <Box>
-              <Typography variant="h4" gutterBottom component="h2">
-                Consumo
-              </Typography>
-              <SimpleTable />
-            </Box>
-          </Grid>
-          {!isEmpty(this.state.data) ?
+          {this.state.loading ? 
+          <div
+            style={{
+                position: 'absolute', left: '50%', top: '50%',
+                transform: 'translate(-50%, -50%)'
+            }}
+          >
+            <ClipLoader
+              sizeUnit={"px"}
+              size={150}
+              color={'#123abc'}
+              loading={this.state.loading}
+            />
+            </div>
+          :
+          <>
             <Grid item xs={6}>
               <Box>
                 <Typography variant="h4" gutterBottom component="h2">
-                  Consumo 2019
+                  Consumo 2019 
                 </Typography>
-                <LineChart 
-                  data={this.state.data} 
-                  options={options}
-                  width={250} 
-                  height={250}/>
+                <SimpleTable data={this.state.anualData}/>
               </Box>
             </Grid>
-            :null
+            <Grid item xs={6}>
+              <Box>
+                <Typography variant="h4" gutterBottom component="h2">
+                  Consumo Mensal
+                </Typography>
+                <SimpleTable data={this.state.monthData}/>
+              </Box>
+            </Grid>
+            {!isEmpty(this.state.anualDataByMonth) ?
+              <Grid item xs={6}>
+                <Box>
+                  <Typography variant="h4" gutterBottom component="h2">
+                    Gasto 2019 Detalhado
+                  </Typography>
+                  <LineChart 
+                    data={this.state.anualDataByMonth} 
+                    options={options}
+                    width={250} 
+                    height={250}/>
+                </Box>
+              </Grid>
+              :null
+            }
+            {!isEmpty(this.state.monthDataDayByDay) ?
+              <Grid item xs={6}>
+                <Box>
+                  <Typography variant="h4" gutterBottom component="h2">
+                    Gasto Abril Detalhado
+                  </Typography>
+                  <LineChart 
+                    data={this.state.monthDataDayByDay} 
+                    options={options}
+                    width={250} 
+                    height={250}/>
+                </Box>
+              </Grid>
+              :null
+            }
+          </>
           }
         </Grid>
       </div>
